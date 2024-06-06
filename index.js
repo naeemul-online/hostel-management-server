@@ -1,15 +1,11 @@
 const express = require("express");
-require("dotenv").config();
-const cors = require("cors");
 const app = express();
-const port = 5000;
-const corsOptions = {
-  origin: "*",
-  credentials: true, //access-control-allow-credentials:true
-  optionSuccessStatus: 200,
-};
+const cors = require("cors");
+require("dotenv").config();
+const port = process.env.PORT || 5000;
 
-app.use(cors(corsOptions));
+// middleware
+app.use(cors());
 app.use(express.json());
 
 const { MongoClient, ServerApiVersion } = require("mongodb");
@@ -32,6 +28,9 @@ async function run() {
     const mealsCollection = client.db("mealsDb").collection("meals");
     const likesCollection = client.db("mealsDb").collection("likes");
     const reviewsCollection = client.db("mealsDb").collection("reviews");
+    const requestedMealCollection = client
+      .db("mealsDb")
+      .collection("requestedMeal");
 
     // Meals related API
     app.get("/meals", async (req, res) => {
@@ -75,12 +74,35 @@ async function run() {
       }
     });
 
-    app.get("/likes", async (req, res) => {     
+    app.get("/likes", async (req, res) => {
       try {
-        const result = await likesCollection.find().toArray()
+        const result = await likesCollection.find().toArray();
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Failed to review meal" });
+      }
+    });
+
+    // request Meal related api
+    app.post("/requestedMeal", async (req, res) => {
+      const requestedMeal = req.body;
+      // console.log(requestedMeal);
+      const query = {
+        mealTitle: requestedMeal.mealTitle,
+        userEmail: requestedMeal.userEmail,
+      };
+      try {
+        const existingRequest = await requestedMealCollection.findOne(query);
+        if (existingRequest) {
+          res
+            .status(400)
+            .send({ error: "You have already requested this meal" });
+        } else {
+          const result = await requestedMealCollection.insertOne(requestedMeal);
+          res.send(result);
+        }
+      } catch (error) {
+        res.status(500).send({ error: "Failed to requested meal" });
       }
     });
 
@@ -95,7 +117,7 @@ async function run() {
         res.status(500).send({ error: "Failed to review meal" });
       }
     });
-    app.get("/reviews", async (req, res) => {     
+    app.get("/reviews", async (req, res) => {
       try {
         const result = await reviewsCollection.find().toArray();
         res.send(result);
