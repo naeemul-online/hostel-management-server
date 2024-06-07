@@ -12,12 +12,12 @@ app.use(
       "http://localhost:5173",
       "https://hostel-management-client.web.app",
       "https://euphonious-shortbread-98a6aa.netlify.app",
-    ]
+    ],
   })
 );
 app.use(express.json());
 
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ml8mugs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
@@ -34,12 +34,32 @@ async function run() {
     // Connect the client to the server	(optional starting in v4.7)
     // await client.connect();
 
+    const userCollection = client.db("mealsDb").collection("users");
     const mealsCollection = client.db("mealsDb").collection("meals");
     const likesCollection = client.db("mealsDb").collection("likes");
     const reviewsCollection = client.db("mealsDb").collection("reviews");
     const requestedMealCollection = client
       .db("mealsDb")
       .collection("requestedMeal");
+
+    // user related apu
+    app.post("/users", async (req, res) => {
+      const user = req.body;
+      const query = { email: user.email };
+      console.log(user);
+      try {
+        const existingUser = await userCollection.findOne(query);
+        if (existingUser) {
+          return res.send({ message: "user already exist", insertedId: null });
+        } else {
+          const result = await userCollection.insertOne(user);
+          console.log(result);
+          res.send(result);
+        }
+      } catch {
+        res.status(500).send({ error: "Failed to requested users data" });
+      }
+    });
 
     // Meals related API
     app.get("/meals", async (req, res) => {
@@ -129,6 +149,18 @@ async function run() {
     app.get("/reviews", async (req, res) => {
       try {
         const result = await reviewsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to review meal" });
+      }
+    });
+
+    app.delete("/reviews/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id)
+      const query = { _id: new ObjectId(id) };
+      try {
+        const result = await reviewsCollection.deleteOne(query);
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Failed to review meal" });
