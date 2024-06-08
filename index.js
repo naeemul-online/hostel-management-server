@@ -1,6 +1,7 @@
 const express = require("express");
 const app = express();
 const cors = require("cors");
+const jwt = require("jsonwebtoken");
 require("dotenv").config();
 const port = process.env.PORT || 5000;
 
@@ -42,22 +43,102 @@ async function run() {
       .db("mealsDb")
       .collection("requestedMeal");
 
+    // jwt related api
+    app.post("/jwt", (req, res) => {
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "365d",
+      });
+      res.send({ token });
+    });
+
+    // middleware
+    const verifyToken = (req, res, next) => {
+      console.log("inside verify token", req.headers.authorization);
+      if (!req.headers.authorization) {
+        return res.status(401).send({ message: "forbidden access" });
+      }
+      const token = req.headers.authorization.split(" ")[1];
+      jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+        if (err) {
+          return res.status(401).send({ message: "unauthorized access" });
+        }
+        req.decoded = decoded;
+        next();
+      });
+    };
+
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      const isAdmin = user?.role === "admin";
+      if (!isAdmin) {
+        return res.status(403).send({ message: "forbidden access" });
+      }
+      next();
+    };
+
     // user related apu
+
     app.post("/users", async (req, res) => {
       const user = req.body;
       const query = { email: user.email };
-      console.log(user);
+      // console.log(user);
       try {
         const existingUser = await userCollection.findOne(query);
         if (existingUser) {
           return res.send({ message: "user already exist", insertedId: null });
         } else {
           const result = await userCollection.insertOne(user);
-          console.log(result);
+          // console.log(result);
           res.send(result);
         }
       } catch {
         res.status(500).send({ error: "Failed to requested users data" });
+      }
+    });
+    app.get("/users", verifyToken, verifyAdmin, async (req, res) => {
+      // console.log(req.headers);
+      try {
+        const result = await userCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to fetch meals" });
+      }
+    });
+
+    app.get("/users/admin/:email", verifyToken, async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      if (email !== req.decoded.email) {
+        return res.status(403).send({ message: "unauthorized access" });
+      }
+      const query = { email: email };
+      const user = await userCollection.findOne(query);
+      let admin = false;
+      if (user) {
+        admin = user?.role === "admin";
+      }
+      res.send({ admin });
+    });
+
+    app.patch("/users/admin/:id", async (req, res) => {
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      // console.log("this for patch", id, filter);
+      const updateDoc = {
+        $set: {
+          role: "admin",
+        },
+      };
+
+      try {
+        const result = await userCollection.updateOne(filter, updateDoc);
+        // console.log(result);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to patch user" });
       }
     });
 
@@ -85,7 +166,7 @@ async function run() {
     // Likes related api
     app.post("/likes", async (req, res) => {
       const likeItem = req.body;
-      console.log(likeItem);
+      // console.log(likeItem);
       const query = {
         mealTitle: likeItem.mealTitle,
         userEmail: likeItem.userEmail,
@@ -138,7 +219,7 @@ async function run() {
     // review related api Collection
     app.post("/reviews", async (req, res) => {
       const reviewItem = req.body;
-      console.log(reviewItem);
+      // console.log(reviewItem);
       try {
         const result = await reviewsCollection.insertOne(reviewItem);
         res.send(result);
