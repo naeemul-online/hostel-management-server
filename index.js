@@ -151,10 +151,19 @@ async function run() {
         res.status(500).send({ error: "Failed to fetch meals" });
       }
     });
+    app.post("/meals", async (req, res) => {
+      const meal = req.body;
+      try {
+        const result = await mealsCollection.insertOne(meal);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to fetch meals" });
+      }
+    });
 
     app.get("/meals/:id", async (req, res) => {
-      const id = parseFloat(req.params.id);
-      const query = { id: id };
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) };
       try {
         const result = await mealsCollection.findOne(query);
         res.send(result);
@@ -230,6 +239,18 @@ async function run() {
     app.get("/reviews", async (req, res) => {
       try {
         const result = await reviewsCollection.find().toArray();
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to review meal" });
+      }
+    });
+    app.get("/reviews/:email", async (req, res) => {
+      const email = req.params.email;
+      console.log(email);
+      const query = { userEmail: email };
+      try {
+        const result = await reviewsCollection.find(query).toArray();
+        console.log(result);
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Failed to review meal" });
