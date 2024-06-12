@@ -54,7 +54,7 @@ async function run() {
 
     // middleware
     const verifyToken = (req, res, next) => {
-      console.log("inside verify token", req.headers.authorization);
+      // console.log("inside verify token", req.headers.authorization);
       if (!req.headers.authorization) {
         return res.status(401).send({ message: "forbidden access" });
       }
@@ -153,11 +153,42 @@ async function run() {
     });
     app.post("/meals", async (req, res) => {
       const meal = req.body;
+      console.log(meal);
       try {
         const result = await mealsCollection.insertOne(meal);
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Failed to fetch meals" });
+      }
+    });
+    app.patch("/meals/:id", async (req, res) => {
+      const meal = req.body;
+      const id = req.params.id;
+      const filter = { _id: new ObjectId(id) };
+      // console.log("this for patch", id, filter);
+      const updateDoc = {
+        $set: {
+          name: meal.name,
+          email: meal.email,
+          category: meal.category,
+          price: meal.price,
+          title: meal.price,
+          description: meal.description,
+          ingredients: meal.ingredients,
+          reviews: meal.reviews,
+          rating: meal.rating,
+          postTime: meal.postTime,
+          likes: meal.likes,
+          image: meal.image,
+        },
+      };
+
+      try {
+        const result = await userCollection.updateOne(filter, updateDoc);
+        // console.log(result);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to patch user" });
       }
     });
 
@@ -169,6 +200,18 @@ async function run() {
         res.send(result);
       } catch (error) {
         res.status(500).send({ error: "Failed to fetch meal" });
+      }
+    });
+
+    app.delete("/meals/:id", async (req, res) => {
+      const id = req.params.id;
+      // console.log(id)
+      const query = { _id: new ObjectId(id) };
+      try {
+        const result = await mealsCollection.deleteOne(query);
+        res.send(result);
+      } catch (error) {
+        res.status(500).send({ error: "Failed to review meal" });
       }
     });
 
@@ -246,7 +289,7 @@ async function run() {
     });
     app.get("/reviews/:email", async (req, res) => {
       const email = req.params.email;
-      console.log(email);
+      // console.log(email);
       const query = { userEmail: email };
       try {
         const result = await reviewsCollection.find(query).toArray();
